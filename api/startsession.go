@@ -8,6 +8,12 @@ import (
 	"net/url"
 	"io/ioutil"
 	"bytes"
+	"encoding/json"
+	"time"
+	"strings"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 )
 
 func main() {
@@ -31,7 +37,7 @@ func main() {
 	gettokenstring := "/getToken"
 	gettokenurl := fmt.Sprintf("%s%s%s", osfciurl, *username, gettokenstring)
 
-	fmt.Println(gettokenurl)
+	//fmt.Println(gettokenurl)
 
 	client := &http.Client{}
 
@@ -49,15 +55,85 @@ func main() {
 	if err != nil {
                 //error handling
         }
-	fmt.Println("resp.Header=",resp.Header)
+	fmt.Println("\nresp.Header=",resp.Header)
 	//fmt.Println("resp.Status=",resp.Status)
+	//fmt.Println("Content-Type=",resp.Header.Get("Content-Type"))
+	//fmt.Println("Content-Length=",resp.Header.Get("Content-Length"))
+	//fmt.Println("Date=",resp.Header.Get("Date"))
 
+	myDate := time.Now().UTC().Format(http.TimeFormat)
+	myDate = strings.Replace(myDate, "GMT", "+0000", -1)
 
+	contentType := resp.Header.Get("Content-Type")
+
+	//cookie := resp.Header.Get("Set-Cookie")
+
+	var cookie []*http.Cookie
+	cookie = resp.Cookies()
+
+	fmt.Println("\nmyDate=",myDate)
+	fmt.Println("\ncookie=",cookie)
+
+	defer resp.Body.Close()
 	f, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
                 //error handling
         }
-	resp.Body.Close()
 
-	fmt.Println(string(f))
+	body := (string(f))
+
+	fmt.Println("\nbody =",body)
+
+	type token struct {
+		Accesskey string
+		Secretkey string
+	}
+
+	var return_data *token
+	return_data =new(token)
+	json.Unmarshal([]byte(body),return_data)
+
+	accessKey := return_data.Accesskey
+	secretKey := return_data.Secretkey
+
+	fmt.Println("\nSecretKey=", secretKey)
+	fmt.Println("\nAccessKey=", accessKey)
+
+	stringToSign := "GET\n\n"+contentType+"\n"+myDate+"\n"+"/ci/getServer"
+
+	fmt.Println("\nStringtoSign = ", stringToSign)
+
+	mac := hmac.New(sha1.New, []byte(secretKey))
+	mac.Write([]byte(stringToSign))
+	expectedMAC := mac.Sum(nil)
+	signature:=base64.StdEncoding.EncodeToString(expectedMAC)
+
+	fmt.Println("\nsignature=",signature)
+
+	authorization := "OSF"+accessKey+":"+signature
+	fmt.Println("\nAuthorization = ", authorization)
+	sreq, err := http.NewRequest("GET", "https://osfci.tech/ci/getServer", nil)
+	if err != nil{
+		//handle err
+	}
+	sreq.Header.Add("Host","osfci.tech")
+	sreq.Header.Add("Mydate", myDate)
+	sreq.Header.Add("Content-Type", contentType)
+	sreq.Header.Add("Authorization", authorization)
+
+	sresp, err := http.DefaultClient.Do(sreq)
+	if err != nil {
+		//handle err
+	}
+
+	fmt.Println("\nsresp.Header=",sresp.Header)
+	fmt.Println("\nsresp.Status=",resp.Status)
+
+	defer sresp.Body.Close()
+	sbody,err := ioutil.ReadAll(sresp.Body)
+	if err != nil {
+                //handle err
+        }
+
+	fmt.Println("\nBody",string(sbody))
 }
