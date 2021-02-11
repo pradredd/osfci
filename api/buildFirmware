@@ -94,7 +94,7 @@ accessKey=`cat $HOME/.osfci/auth | awk '{ print $2 }'`
 secretKey=`cat $HOME/.osfci/auth | awk '{ print $3 }'`
 serverName=`cat $HOME/.osfci/credential.txt | sed 's/{//' | sed 's/}//' | awk -F"," '{ print $1 }' | awk -F":" '{ print $2 }' | sed 's/"//g'`
 
-if [ "$github" == "github.hpe.com" ]
+if [ ! -z "$gitToken" ]
 then
 curl -X PUT -H "Content-Type: text/plain" -d "$gitoken" "https://osfci.tech/ci/gitToken/$username"
 fi
