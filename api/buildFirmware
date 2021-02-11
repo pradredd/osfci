@@ -20,6 +20,7 @@ function help() {
    echo "-f or --firmware <openbmc|linuxboot> : to select which firmware to download"
    echo "-g or --git : http address of a git repository"
    echo "-b or --branch : branch to use"
+   echo "-t or --gittoken : personal access token for github.hpe.com"
    echo "-w or --wait : wait for end of compilation"
    exit 0
 }
@@ -49,6 +50,11 @@ case $key in
     shift # past argument
     shift # past value
     ;;
+    -t|--gittoken)
+    gitToken="$2"
+    shift # past argument
+    shift # past value
+    ;;
     -w|--wait)
     waitServer="1"
     shift # past argument
@@ -71,9 +77,27 @@ echo ""
 help
 fi
 
+github=`echo "$git" | awk -F/ '{print $3}'`
+
+if [ "$github" == "github.hpe.com" ]
+then
+   if [ "$gitToken" == "" ]
+   then
+   echo "Error missing gitToken parameter : -t|--gittoken"
+   echo ""
+   help
+   fi
+fi
+
+
 accessKey=`cat $HOME/.osfci/auth | awk '{ print $2 }'`
 secretKey=`cat $HOME/.osfci/auth | awk '{ print $3 }'`
 serverName=`cat $HOME/.osfci/credential.txt | sed 's/{//' | sed 's/}//' | awk -F"," '{ print $1 }' | awk -F":" '{ print $2 }' | sed 's/"//g'`
+
+if [ "$github" == "github.hpe.com" ]
+then
+curl -X PUT -H "Content-Type: text/plain" -d "$gitoken" "https://osfci.tech/ci/gitToken/$username"
+fi
 
 # We have to build now that we got a server
 if [ "$firmware" == "linuxboot" ]
